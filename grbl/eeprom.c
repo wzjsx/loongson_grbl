@@ -21,8 +21,10 @@
 *                         $Revision: 1.6 $
 *                         $Date: Friday, February 11, 2005 07:16:44 UTC $
 ****************************************************************************/
+#ifndef LOONGSON
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#endif
 
 /* These EEPROM bits have different names on different devices. */
 #ifndef EEPE
@@ -48,10 +50,14 @@
  */
 unsigned char eeprom_get_char( unsigned int addr )
 {
+#ifndef LOONGSON
 	do {} while( EECR & (1<<EEPE) ); // Wait for completion of previous write.
 	EEAR = addr; // Set EEPROM address register.
 	EECR = (1<<EERE); // Start EEPROM read operation.
 	return EEDR; // Return the byte read from EEPROM.
+#else
+	return 0;
+#endif
 }
 
 /*! \brief  Write byte to EEPROM.
@@ -73,6 +79,7 @@ unsigned char eeprom_get_char( unsigned int addr )
  */
 void eeprom_put_char( unsigned int addr, unsigned char new_value )
 {
+#ifndef LOONGSON
 	char old_value; // Old EEPROM value.
 	char diff_mask; // Difference mask, i.e. old value XOR new value.
 
@@ -122,6 +129,7 @@ void eeprom_put_char( unsigned int addr, unsigned char new_value )
 	}
 	
 	sei(); // Restore interrupt flag state.
+#endif
 }
 
 // Extensions added as part of Grbl 

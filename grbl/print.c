@@ -33,8 +33,12 @@ void printString(const char *s)
 void printPgmString(const char *s)
 {
   char c;
+#ifndef LOONGSON
   while ((c = pgm_read_byte_near(s++)))
     serial_write(c);
+#else
+  printf("%s\n", s);
+#endif
 }
 
 

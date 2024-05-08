@@ -57,6 +57,7 @@ uint8_t serial_get_tx_buffer_count()
 
 void serial_init()
 {
+#ifndef LOONGSON
   // Set baud rate
   #if BAUD_RATE < 57600
     uint16_t UBRR0_value = ((F_CPU / (8L * BAUD_RATE)) - 1)/2 ;
@@ -76,12 +77,14 @@ void serial_init()
   UCSR0B |= 1<<RXCIE0;
 	  
   // defaults to 8-bit, no parity, 1 stop bit
+#endif
 }
 
 
 // Writes one byte to the TX serial buffer. Called by main program.
 // TODO: Check if we can speed this up for writing strings, rather than single bytes.
 void serial_write(uint8_t data) {
+#ifndef LOONGSON
   // Calculate next head
   uint8_t next_head = serial_tx_buffer_head + 1;
   if (next_head == TX_BUFFER_SIZE) { next_head = 0; }
@@ -98,12 +101,14 @@ void serial_write(uint8_t data) {
   
   // Enable Data Register Empty Interrupt to make sure tx-streaming is running
   UCSR0B |=  (1 << UDRIE0); 
+#endif 
 }
 
 
 // Data Register Empty Interrupt handler
 ISR(SERIAL_UDRE)
 {
+#ifndef LOONGSON
   uint8_t tail = serial_tx_buffer_tail; // Temporary serial_tx_buffer_tail (to optimize for volatile)
   
   #ifdef ENABLE_XONXOFF
@@ -128,6 +133,7 @@ ISR(SERIAL_UDRE)
   
   // Turn off Data Register Empty Interrupt to stop tx-streaming if this concludes the transfer
   if (tail == serial_tx_buffer_head) { UCSR0B &= ~(1 << UDRIE0); }
+#endif
 }
 
 
@@ -158,6 +164,7 @@ uint8_t serial_read()
 
 ISR(SERIAL_RX)
 {
+#ifndef LOONGSON
   uint8_t data = UDR0;
   uint8_t next_head;
   
@@ -188,6 +195,7 @@ ISR(SERIAL_RX)
       }
       //TODO: else alarm on overflow?
   }
+#endif
 }
 
 

@@ -32,6 +32,7 @@
 
 void limits_init() 
 {
+#ifndef LOONGSON
   LIMIT_DDR &= ~(LIMIT_MASK); // Set as input pins
 
   #ifdef DISABLE_LIMIT_PIN_PULL_UP
@@ -52,14 +53,17 @@ void limits_init()
     WDTCSR |= (1<<WDCE) | (1<<WDE);
     WDTCSR = (1<<WDP0); // Set time-out at ~32msec.
   #endif
+#endif
 }
 
 
 // Disables hard limits.
 void limits_disable()
 {
+#ifndef LOONGSON
   LIMIT_PCMSK &= ~LIMIT_MASK;  // Disable specific pins of the Pin Change Interrupt
   PCICR &= ~(1 << LIMIT_INT);  // Disable Pin Change Interrupt
+#endif
 }
 
 

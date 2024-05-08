@@ -23,25 +23,32 @@
 
 void coolant_init()
 {
+#ifndef LOONGSON
   COOLANT_FLOOD_DDR |= (1 << COOLANT_FLOOD_BIT);
   #ifdef ENABLE_M7
     COOLANT_MIST_DDR |= (1 << COOLANT_MIST_BIT);
   #endif
   coolant_stop();
+#else
+#endif
 }
 
 
 void coolant_stop()
 {
+#ifndef LOONGSON
   COOLANT_FLOOD_PORT &= ~(1 << COOLANT_FLOOD_BIT);
   #ifdef ENABLE_M7
     COOLANT_MIST_PORT &= ~(1 << COOLANT_MIST_BIT);
   #endif
+#else
+#endif
 }
 
 
 void coolant_set_state(uint8_t mode)
 {
+#ifndef LOONGSON
   if (mode == COOLANT_FLOOD_ENABLE) {
     COOLANT_FLOOD_PORT |= (1 << COOLANT_FLOOD_BIT);
 
@@ -53,6 +60,8 @@ void coolant_set_state(uint8_t mode)
   } else {
     coolant_stop();
   }
+#else
+#endif
 }
 
 
