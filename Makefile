@@ -43,7 +43,7 @@ FUSES      = -U hfuse:w:0xd2:m -U lfuse:w:0xff:m
 
 AVRDUDE = avrdude $(PROGRAMMER) -p $(DEVICE) -B 10 -F
 #COMPILE = avr-gcc -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE) -I. -ffunction-sections -fdata-sections
-COMPILE = /opt/toolchain-loongarch64-linux-gnu-gcc8-host-x86_64-2022-07-18/bin/loongarch64-linux-gnu-gcc -Wall -Os -DF_CPU=$(CLOCK) -DLOONGSON -I. -ffunction-sections -fdata-sections
+COMPILE = /opt/toolchain-loongarch64-linux-gnu-gcc8-host-x86_64-2022-07-18/bin/loongarch64-linux-gnu-gcc -Wall -static -Os -DF_CPU=$(CLOCK) -DLOONGSON -I. -ffunction-sections -fdata-sections
 
 OBJECTS = $(addprefix $(BUILDDIR)/,$(notdir $(SOURCE:.c=.o)))
 

@@ -24,6 +24,14 @@
 #ifndef LOONGSON
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#else
+#include <stdlib.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include "settings.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 #endif
 
 /* These EEPROM bits have different names on different devices. */
@@ -34,10 +42,87 @@
 
 /* These two are unfortunately not defined in the device include files. */
 #define EEPM1 5 //!< EEPROM Programming Mode Bit 1.
-#define EEPM0 4 //!< EEPROM Programming Mode Bit 0.
+#define EEPM0 4 //!< EEPROM Programming Mode Bit -1.
 
 /* Define to reduce code size. */
 #define EEPROM_IGNORE_SELFPROG //!< Remove SPM flag polling.
+
+
+
+#ifdef LOONGSON
+#define EEPROM_SIZE 2048
+#define FILEMODE S_IRWXU | S_IRGRP | S_IROTH
+int fd;
+char EEPROM[EEPROM_SIZE];
+char *EEaddr=NULL;
+
+void create_eeprom_file()
+{
+    unsigned char c;
+	int i;
+	int ret;
+	int store_defaults;
+	size_t len_file;
+	struct stat st;
+	FILE *fp;
+	store_defaults = 0;
+	if ((fd = open("eeprom.bin",O_RDWR, FILEMODE)) < 0) {
+		fp=fopen("eeprom.bin", "wb");
+		if (fp == NULL) {
+			printf("error : create_eeprom_file() failed to create eeprom.bin\n");
+               		return;
+		}
+		c = 0;
+		for(i=0;i<EEPROM_SIZE;i++)
+			fwrite(&c, 1, 1, fp);
+		fclose(fp);
+        	// store defaults
+		store_defaults=1;
+	}
+	// mmap it
+
+	if ((fd = open("eeprom.bin",O_RDWR | O_CREAT, FILEMODE)) < 0) {
+		printf("error : create_eeprom_file failed to mmap eeprom.bin\n");
+		return;
+	}
+	if ((ret = fstat(fd,&st)) < 0) {
+        	printf("Error in fstat");
+        	return;
+    	}
+
+	len_file = st.st_size;
+
+	/*len_file having the total length of the file(fd).*/
+
+	if ((EEaddr = mmap(NULL,len_file,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0)) == MAP_FAILED) {
+        	printf("Error in mmap");
+        	return;
+	}
+
+	// do we need to store defaults?
+	if (store_defaults) {
+                settings_restore(true);
+                write_global_settings();
+	}
+}
+
+unsigned char eeprom_file_get_char( unsigned int addr )
+{
+		unsigned char c;
+	if (!EEaddr)
+		return 0xf;
+	c = *(EEaddr+addr);
+	return c;
+}
+
+void eeprom_file_put_char( unsigned int addr, unsigned char new_value )
+{
+       if (!EEaddr)
+                return;
+        *(EEaddr+addr)=new_value;
+}
+
+#endif
 
 /*! \brief  Read byte from EEPROM.
  *
@@ -56,7 +141,7 @@ unsigned char eeprom_get_char( unsigned int addr )
 	EECR = (1<<EERE); // Start EEPROM read operation.
 	return EEDR; // Return the byte read from EEPROM.
 #else
-	return 0;
+	return eeprom_file_get_char(addr);
 #endif
 }
 
@@ -129,6 +214,8 @@ void eeprom_put_char( unsigned int addr, unsigned char new_value )
 	}
 	
 	sei(); // Restore interrupt flag state.
+#else
+	eeprom_file_put_char(addr,new_value);
 #endif
 }
 

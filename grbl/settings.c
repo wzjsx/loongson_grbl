@@ -276,6 +276,9 @@ uint8_t settings_store_global_setting(uint8_t parameter, float value) {
 
 // Initialize the config subsystem
 void settings_init() {
+#ifdef LOONGSON
+	create_eeprom_file();
+#endif
   if(!read_global_settings()) {
     report_status_message(STATUS_SETTING_READ_FAIL);
     settings_restore(SETTINGS_RESTORE_ALL); // Force restore all EEPROM data.

@@ -21,6 +21,10 @@
 
 #include "grbl.h"
 
+#ifdef LOONGSON
+#include <stdio.h>
+#include <fcntl.h>
+#endif
 
 uint8_t serial_rx_buffer[RX_BUFFER_SIZE];
 uint8_t serial_rx_buffer_head = 0;
@@ -77,6 +81,12 @@ void serial_init()
   UCSR0B |= 1<<RXCIE0;
 	  
   // defaults to 8-bit, no parity, 1 stop bit
+#else
+	int flags;
+	/* unblock STDIO */
+	flags = fcntl(0, F_GETFL); 
+	flags |= O_NONBLOCK;
+	fcntl(0, F_SETFL, flags);
 #endif
 }
 
@@ -101,6 +111,8 @@ void serial_write(uint8_t data) {
   
   // Enable Data Register Empty Interrupt to make sure tx-streaming is running
   UCSR0B |=  (1 << UDRIE0); 
+#else
+  putchar(data);
 #endif 
 }
 
@@ -140,6 +152,7 @@ ISR(SERIAL_UDRE)
 // Fetches the first byte in the serial read buffer. Called by main program.
 uint8_t serial_read()
 {
+#ifndef LOONGSON
   uint8_t tail = serial_rx_buffer_tail; // Temporary serial_rx_buffer_tail (to optimize for volatile)
   if (serial_rx_buffer_head == tail) {
     return SERIAL_NO_DATA;
@@ -159,6 +172,13 @@ uint8_t serial_read()
     
     return data;
   }
+#else
+    int c;
+    c = getchar();
+    if (c == EOF)
+    return SERIAL_NO_DATA;
+    return c;
+#endif
 }
 
 
