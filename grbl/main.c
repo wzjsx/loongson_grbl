@@ -20,7 +20,9 @@
 */
 
 #include "grbl.h"
-
+#ifdef LOONGSON
+#include "loongson.h"
+#endif
 
 // Declare system global variable structure
 system_t sys; 
@@ -28,6 +30,10 @@ system_t sys;
 
 int main(void)
 {
+  #ifdef LOONGSON
+  // Lock memory : avoid memory swapping for this program
+  mlockall(MCL_CURRENT|MCL_FUTURE);
+  #endif
   // Initialize system upon power-up.
   serial_init();   // Setup serial baud rate and interrupts
   settings_init(); // Load Grbl settings from EEPROM

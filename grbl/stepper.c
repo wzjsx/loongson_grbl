@@ -21,6 +21,8 @@
 
 #include "grbl.h"
 
+#ifdef LOONGSON
+#endif
 
 // Some useful constants.
 #define DT_SEGMENT (1.0/(ACCELERATION_TICKS_PER_SECOND*60.0)) // min/segment 
@@ -403,6 +405,8 @@ ISR(TIMER1_COMPA_vect)
   st.step_outbits ^= step_port_invert_mask;  // Apply step port invert mask    
   busy = false;
 // SPINDLE_ENABLE_PORT ^= 1<<SPINDLE_ENABLE_BIT; // Debug: Used to time ISR
+#else
+
 #endif
 }
 
