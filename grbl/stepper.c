@@ -22,6 +22,23 @@
 #include "grbl.h"
 
 #ifdef LOONGSON
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <signal.h> 
+#include <fcntl.h>
+#include <string.h>  
+
+#include <pthread.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <termios.h>
+#include <sys/mman.h>
 #endif
 
 // Some useful constants.
@@ -81,7 +98,10 @@ typedef struct {
   // Used by the bresenham line algorithm
   uint32_t counter_x,        // Counter variables for the bresenham line tracer
            counter_y, 
-           counter_z;
+           counter_z,
+           counter_u,
+           counter_v,
+           counter_e;
   #ifdef STEP_PULSE_DELAY
     uint8_t step_bits;  // Stores out_bits output to complete the step pulse delay
   #endif
@@ -178,12 +198,520 @@ static st_prep_t prep;
   parameters for the stepper algorithm to accurately trace the profile. These critical parameters 
   are shown and defined in the above illustration.
 */
+//pwm4是通过gpio进行驱动，所以也要在驱动之中
+// pwm 是有输出引脚与方向引脚
+//输出引脚 45
+//方向引脚 44
+void gpio_pwm_out()
+{
+
+}
+  // echo 45 > /sys/class/gpio/export
+  // echo out > /sys/class/gpio/gpio45/direction
+
+  // echo 44 > /sys/class/gpio/export
+  // echo out > /sys/class/gpio/gpio44/direction
+
+  // echo 1 > /sys/class/gpio/gpio45/value
+  // echo 1 > /sys/class/gpio/gpio44/value
 
 
+#define MAP_SIZE 0x3000
+#define MAP_SIZE2 0x3000
+#define REG_BASE2 0x1fe20000
+#define REG_BASE 0x1fe00000
+#define FUNC_BASE 0x1fe00420
+#define GPIO_EN 0x500
+#define GPIO_OUT 0x510
+#define GPIO_IN 0x520
+#define REG0 0x420//通用配置寄存器 0
+
+#define ABP_BASE 0xFE00001000
+
+// 1fe22000-1fe2200f : pwm@1fe22000
+// 1fe22010-1fe2201f : pwm@1fe22010
+
+#define PWM0_BASE 0x02000//
+#define PWM1_BASE 0x02010//
+#define PWM2_BASE 0x02020//
+#define PWM3_BASE 0x02030//
+
+unsigned char *map_base=NULL;
+unsigned char *abp_base=NULL;
+unsigned char *abp_base1=NULL;
+unsigned char *func_base=NULL;
+int dev_fd;
+
+//初始化pwm
+void loongson_pwm_init(void)
+{
+  dev_fd = open("/dev/mem", O_RDWR | O_SYNC);
+if (dev_fd < 0)
+{
+printf("\nopen(/dev/mem) failed.\n");
+return -1;
+}
+//func_base=(unsigned char *)mmap(0,MAP_SIZE,PROT_READ|PROT_WRITE,MAP_SHARED,dev_fd,REG_BASE);
+map_base=(unsigned char *)mmap(0,MAP_SIZE,PROT_READ|PROT_WRITE,MAP_SHARED,dev_fd,REG_BASE2);
+abp_base1=(unsigned char *)mmap(0,MAP_SIZE2,PROT_READ|PROT_WRITE,MAP_SHARED,dev_fd,REG_BASE);
+//printf("%llx\n", *(volatile unsigned long long *)(abp_base +  0));
+//*(volatile unsigned int *)(abp_base) |= 0x10; 
+//printf("%08x\n", *(volatile unsigned int *)(abp_base + PWM0_BASE));
+    *(volatile unsigned long long *)(abp_base1 +  REG0) |= ( 0xF << 12 );
+#if 1
+
+
+//*(volatile unsigned long long *)(func_base +  REG0) |= ( 0xF << 12 );
+*(volatile unsigned int *)(map_base + PWM0_BASE+0x4 ) = 300000;
+*(volatile unsigned int *)(map_base + PWM0_BASE+0x8 ) = 500000;
+
+*(volatile unsigned int *)(map_base + PWM1_BASE+0x4 ) = 300000;
+*(volatile unsigned int *)(map_base + PWM1_BASE+0x8 ) = 500000;
+
+*(volatile unsigned int *)(map_base + PWM2_BASE+0x4 ) = 300000;
+*(volatile unsigned int *)(map_base + PWM2_BASE+0x8 ) = 500000;
+
+*(volatile unsigned int *)(map_base + PWM3_BASE+0x4 ) = 300000;
+*(volatile unsigned int *)(map_base + PWM3_BASE+0x8 ) = 500000;
+
+printf("pwm1\n");
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM0_BASE));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM0_BASE + 0x4));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM0_BASE + 0x8));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM0_BASE + 0xc));
+
+printf("pwm2\n");
+
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM1_BASE));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM1_BASE + 0x4));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM1_BASE + 0x8));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM1_BASE + 0xc));
+
+printf("pwm3\n");
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM2_BASE));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM2_BASE + 0x4));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM2_BASE + 0x8));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM2_BASE + 0xc));
+
+printf("pwm4\n");
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM3_BASE));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM3_BASE + 0x4));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM3_BASE + 0x8));
+printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM3_BASE + 0xc));
+#endif
+//*(volatile unsigned int *)(func_base) |= ( 0xF << 12 );
+
+// 使能pwm
+*(volatile unsigned int *)(map_base + PWM0_BASE+0xC ) = 0x0;
+*(volatile unsigned int *)(map_base + PWM1_BASE+0xC ) = 0x0;
+*(volatile unsigned int *)(map_base + PWM2_BASE+0xC ) = 0x0;
+*(volatile unsigned int *)(map_base + PWM3_BASE+0xC ) = 0x0;
+
+return 0;
+}
+
+int x_cnt = 0;
+#ifdef LOONGSON
+int cnt = 0;
+void xxx_ttt(void)
+{
+
+  cnt = cnt + 1;
+  // Set the direction pins a couple of nanoseconds before we step the steppers
+ // DIRECTION_PORT = (DIRECTION_PORT & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK);
+
+  // printf("xxx_ttt 1 st.dir_outbits is %d\n", st.dir_outbits);
+  // printf("xxx_ttt 2 st.dir_outbits is %d\n", st.step_outbits);
+  // // Then pulse the stepping pins
+  // // #ifdef STEP_PULSE_DELAY
+  // //   st.step_bits = (STEP_PORT & ~STEP_MASK) | st.step_outbits; // Store out_bits to prevent overwriting.
+  // // #else  // Normal operation
+  // //   STEP_PORT = (STEP_PORT & ~STEP_MASK) | st.step_outbits;
+  // // #endif  
+
+  // // Enable step pulse reset timer so that The Stepper Port Reset Interrupt can reset the signal after
+  // // exactly settings.pulse_microseconds microseconds, independent of the main Timer1 prescaler.
+  // printf("xxx_ttt 3 st.dir_outbits is %d\n", st.step_pulse_time);
+  //TCNT0 = st.step_pulse_time; // Reload Timer0 counter
+  //TCCR0B = (1<<CS01); // Begin Timer0. Full speed, 1/8 prescaler
+
+  // busy = true;
+  // sei(); // Re-enable interrupts to allow Stepper Port Reset Interrupt to fire on-time. 
+  //        // NOTE: The remaining code in this ISR will finish before returning to main program.
+  if (st.exec_segment == NULL) {
+     if (segment_buffer_head != segment_buffer_tail) {
+      // Initialize new step segment and load number of steps to execute
+      st.exec_segment = &segment_buffer[segment_buffer_tail];
+       printf("xxx_ttt 5 st.exec_segment->cycles_per_tick is %d:%d\n",cnt, st.exec_segment->cycles_per_tick);
+
+      if ( st.exec_block_index != st.exec_segment->st_block_index ) {
+        st.exec_block_index = st.exec_segment->st_block_index;
+        printf("xxx_ttt 7 st.exec_block_index is %d\n",st.exec_block_index);
+        st.exec_block = &st_block_buffer[st.exec_block_index];
+        }
+        
+      //   // Initialize Bresenham line and distance counters
+      //   st.counter_x = st.counter_y = st.counter_z = (st.exec_block->step_event_count >> 1);
+      //   printf("xxx_ttt 8 st.counter_x is %d\n",st.counter_x);
+      // }
+      // st.dir_outbits = st.exec_block->direction_bits ^ dir_port_invert_mask; 
+      // printf("xxx_ttt 9 st.dir_outbits is %d\n",st.dir_outbits);
+
+      // #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+      //   // With AMASS enabled, adjust Bresenham axis increment counters according to AMASS level.
+        st.steps[X_AXIS] = st.exec_block->steps[X_AXIS] >> st.exec_segment->amass_level;
+        st.steps[Y_AXIS] = st.exec_block->steps[Y_AXIS] >> st.exec_segment->amass_level;
+        st.steps[Z_AXIS] = st.exec_block->steps[Z_AXIS] >> st.exec_segment->amass_level;
+        st.steps[U_AXIS] = st.exec_block->steps[U_AXIS] >> st.exec_segment->amass_level;
+        st.steps[V_AXIS] = st.exec_block->steps[V_AXIS] >> st.exec_segment->amass_level;
+        st.steps[E_AXIS] = st.exec_block->steps[E_AXIS] >> st.exec_segment->amass_level;
+
+        //printf("xxx_ttt 10 st.steps[X_AXIS] is %d:%d:%d\n",st.steps[X_AXIS], st.steps[Y_AXIS], st.steps[Z_AXIS]);
+        //printf("xxx_ttt 20 st.steps[U_AXIS] is %d:%d:%d\n",st.steps[U_AXIS], st.steps[V_AXIS], st.steps[E_AXIS]);
+        // printf("xxx_ttt 11 st.steps[Y_AXIS] is %d\n",st.steps[Y_AXIS]);
+        // printf("xxx_ttt 12 st.steps[Z_AXIS] is %d\n",st.steps[Z_AXIS]);
+      // #endif
+  }
+
+   // Check probing state.
+  probe_state_monitor();
+   
+  // Reset step out bits.
+  st.step_outbits = 0; 
+
+
+  printf("X st.counter_x %d\n", st.exec_block->steps[X_AXIS]);
+  printf("Y st.counter_y %d\n", st.exec_block->steps[Y_AXIS]);
+  printf("Z st.counter_z %d\n", st.exec_block->steps[Z_AXIS]);
+  printf("U st.counter_u %d\n", st.exec_block->steps[U_AXIS]);
+  printf("V st.counter_v %d\n", st.exec_block->steps[V_AXIS]);
+  printf("E st.counter_e %d\n", st.exec_block->steps[E_AXIS]);
+  // Execute step displacement profile by Bresenham line algorithm
+
+  if(st.exec_block->steps[X_AXIS] > 0)
+  {
+    printf("xxx1\n");
+    *(volatile unsigned int *)(map_base + PWM1_BASE+0xC ) = 0x1;
+  }
+
+    if(st.exec_block->steps[Y_AXIS] > 0)
+  {
+    *(volatile unsigned int *)(map_base + PWM2_BASE+0xC ) = 0x1;
+  }
+
+
+    if(st.exec_block->steps[Z_AXIS] > 0)
+  {
+    *(volatile unsigned int *)(map_base + PWM3_BASE+0xC ) = 0x1;
+  }
+
+
+  #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    st.counter_x += st.steps[X_AXIS];
+    x_cnt += st.steps[X_AXIS];
+    st.counter_y += st.steps[Y_AXIS];
+    st.counter_z += st.steps[Z_AXIS];
+    st.counter_u += st.steps[U_AXIS];
+    st.counter_v += st.steps[V_AXIS];
+    st.counter_e += st.steps[E_AXIS];
+    printf("%d:%d:%d:%d:%d:%d\n", st.counter_x,st.counter_y,st.counter_z,st.counter_u,st.counter_v,st.counter_e);
+    printf("%d:%d\n", st.steps[X_AXIS], x_cnt);
+    if(st.counter_x == st.exec_block->steps[X_AXIS])
+    {
+      *(volatile unsigned int *)(map_base + PWM1_BASE+0xC ) = 0x0;
+    }
+
+
+      if(st.counter_y == st.exec_block->steps[Y_AXIS])
+    {
+      *(volatile unsigned int *)(map_base + PWM2_BASE+0xC ) = 0x0;
+    }
+
+        if(st.counter_z == st.exec_block->steps[Z_AXIS])
+    {
+      *(volatile unsigned int *)(map_base + PWM3_BASE+0xC ) = 0x0;
+    }
+
+
+  #else
+    st.counter_x += st.exec_block->steps[X_AXIS]; 
+    st.counter_y += st.exec_block->steps[Y_AXIS];
+    st.counter_z += st.exec_block->steps[Z_AXIS];
+    st.counter_u += st.exec_block->steps[U_AXIS];
+    st.counter_v += st.exec_block->steps[V_AXIS];
+    st.counter_e += st.exec_block->steps[E_AXIS];
+    printf("%d:%d:%d:%d:%d:%d\n", st.counter_x,st.counter_y,st.counter_z,st.counter_u,st.counter_v,st.counter_e);
+
+
+  #endif 
+  // printf("X st.counter_x %d\n", st.steps[X_AXIS]);
+  // printf("Y st.counter_y %d\n", st.exec_block->steps[Y_AXIS]);
+  // printf("Z st.counter_z %d\n", st.exec_block->steps[Z_AXIS]);
+  // printf("U st.counter_u %d\n", st.exec_block->steps[U_AXIS]);
+  // printf("V st.counter_v %d\n", st.exec_block->steps[V_AXIS]);
+  // printf("E st.counter_e %d\n", st.exec_block->steps[E_AXIS]);
+  if (st.counter_x > st.exec_block->step_event_count) {
+    st.step_outbits |= (1<<X_STEP_BIT);
+    st.counter_x -= st.exec_block->step_event_count;
+    if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { sys.position[X_AXIS]--; }
+    else { sys.position[X_AXIS]++; }
+  }
+  #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    st.counter_y += st.steps[Y_AXIS];
+  #else
+    st.counter_y += st.exec_block->steps[Y_AXIS];
+  #endif    
+  if (st.counter_y > st.exec_block->step_event_count) {
+    st.step_outbits |= (1<<Y_STEP_BIT);
+    st.counter_y -= st.exec_block->step_event_count;
+    if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { sys.position[Y_AXIS]--; }
+    else { sys.position[Y_AXIS]++; }
+  }
+  #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    st.counter_z += st.steps[Z_AXIS];
+  #else
+    st.counter_z += st.exec_block->steps[Z_AXIS];
+  #endif  
+  if (st.counter_z > st.exec_block->step_event_count) {
+    st.step_outbits |= (1<<Z_STEP_BIT);
+    st.counter_z -= st.exec_block->step_event_count;
+    if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { sys.position[Z_AXIS]--; }
+    else { sys.position[Z_AXIS]++; }
+  }  
+
+  // During a homing cycle, lock out and prevent desired axes from moving.
+  if (sys.state == STATE_HOMING) { st.step_outbits &= sys.homing_axis_lock; }   
+
+  st.step_count--; // Decrement step events count 
+  st.step_count = 0;
+  if (st.step_count == 0) {
+    // Segment is complete. Discard current segment and advance segment indexing.
+    st.exec_segment = NULL;
+    if ( ++segment_buffer_tail == SEGMENT_BUFFER_SIZE) { segment_buffer_tail = 0; }
+  }
+
+  st.step_outbits ^= step_port_invert_mask;  // Apply step port invert mask 
+  st_go_idle();   
+  //busy = false;
+  st_reset();
+}
+#if 0  
+  // If there is no step segment, attempt to pop one from the stepper buffer
+  if (st.exec_segment == NULL) {
+    // Anything in the buffer? If so, load and initialize next step segment.
+    if (segment_buffer_head != segment_buffer_tail) {
+      // Initialize new step segment and load number of steps to execute
+      st.exec_segment = &segment_buffer[segment_buffer_tail];
+
+      #ifndef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+        // With AMASS is disabled, set timer prescaler for segments with slow step frequencies (< 250Hz).
+       // TCCR1B = (TCCR1B & ~(0x07<<CS10)) | (st.exec_segment->prescaler<<CS10);
+        printf("xxx_ttt 4 st.dir_outbits is %d\n",st.exec_segment->prescaler);
+      #endif
+
+      // Initialize step segment timing per step and load number of steps to execute.
+      //OCR1A = st.exec_segment->cycles_per_tick;
+      printf("xxx_ttt 5 st.exec_segment->cycles_per_tick is %d:%d\n",segment_buffer_tail, st.exec_segment->cycles_per_tick);
+      st.step_count = st.exec_segment->n_step; // NOTE: Can sometimes be zero when moving slow.
+      st.exec_segment->cycles_per_tick = 1000;
+       printf("xxx_ttt 6 st.step_count is %d\n",st.step_count);
+      // If the new segment starts a new planner block, initialize stepper variables and counters.
+      // NOTE: When the segment data index changes, this indicates a new planner block.
+      if ( st.exec_block_index != st.exec_segment->st_block_index ) {
+        st.exec_block_index = st.exec_segment->st_block_index;
+        printf("xxx_ttt 7 st.exec_block_index is %d\n",st.exec_block_index);
+        st.exec_block = &st_block_buffer[st.exec_block_index];
+        
+        // Initialize Bresenham line and distance counters
+        st.counter_x = st.counter_y = st.counter_z = (st.exec_block->step_event_count >> 1);
+        printf("xxx_ttt 8 st.counter_x is %d\n",st.counter_x);
+      }
+      st.dir_outbits = st.exec_block->direction_bits ^ dir_port_invert_mask; 
+      printf("xxx_ttt 9 st.dir_outbits is %d\n",st.dir_outbits);
+
+      #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+        // With AMASS enabled, adjust Bresenham axis increment counters according to AMASS level.
+        st.steps[X_AXIS] = st.exec_block->steps[X_AXIS] >> st.exec_segment->amass_level;
+        st.steps[Y_AXIS] = st.exec_block->steps[Y_AXIS] >> st.exec_segment->amass_level;
+        st.steps[Z_AXIS] = st.exec_block->steps[Z_AXIS] >> st.exec_segment->amass_level;
+
+
+        printf("xxx_ttt 10 st.steps[X_AXIS] is %d\n",st.steps[X_AXIS]);
+        printf("xxx_ttt 11 st.steps[Y_AXIS] is %d\n",st.steps[Y_AXIS]);
+        printf("xxx_ttt 12 st.steps[Z_AXIS] is %d\n",st.steps[Z_AXIS]);
+      #endif
+      
+    } else {
+      // Segment buffer empty. Shutdown.
+      st_go_idle();
+      //bit_true_atomic(sys_rt_exec_state,EXEC_CYCLE_STOP); // Flag main program for cycle end
+      return; // Nothing to do but exit.
+    }  
+  }
+
+  
+  // Check probing state.
+  probe_state_monitor();
+   
+  // Reset step out bits.
+  st.step_outbits = 0; 
+
+  // Execute step displacement profile by Bresenham line algorithm
+  #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    st.counter_x += st.steps[X_AXIS];
+    printf("test1 st.counter_x %d\n", st.counter_x);
+  #else
+    st.counter_x += st.exec_block->steps[X_AXIS]; 
+  #endif 
+  printf("testover st.counter_x %d\n", st.counter_x);
+  printf("test2 st.exec_block->step_event_count %d\n", st.exec_block->step_event_count); 
+  if (st.counter_x > st.exec_block->step_event_count) {
+    st.step_outbits |= (1<<X_STEP_BIT);
+    st.counter_x -= st.exec_block->step_event_count;
+    if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { sys.position[X_AXIS]--; }
+    else { sys.position[X_AXIS]++; }
+
+    printf("testkkk2 is %d\n", st.counter_x);
+    printf("test3 sys.position[X_AXIS] is %d\n", sys.position[X_AXIS]);
+  }
+  #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    st.counter_y += st.steps[Y_AXIS];
+  #else
+    st.counter_y += st.exec_block->steps[Y_AXIS];
+  #endif    
+  if (st.counter_y > st.exec_block->step_event_count) {
+    st.step_outbits |= (1<<Y_STEP_BIT);
+    st.counter_y -= st.exec_block->step_event_count;
+    if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { sys.position[Y_AXIS]--; }
+    else { sys.position[Y_AXIS]++; }
+  }
+  #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
+    st.counter_z += st.steps[Z_AXIS];
+  #else
+    st.counter_z += st.exec_block->steps[Z_AXIS];
+  #endif  
+  if (st.counter_z > st.exec_block->step_event_count) {
+    st.step_outbits |= (1<<Z_STEP_BIT);
+    st.counter_z -= st.exec_block->step_event_count;
+    if (st.exec_block->direction_bits & (1<<Z_DIRECTION_BIT)) { sys.position[Z_AXIS]--; }
+    else { sys.position[Z_AXIS]++; }
+  }  
+
+  // During a homing cycle, lock out and prevent desired axes from moving.
+  if (sys.state == STATE_HOMING) { st.step_outbits &= sys.homing_axis_lock; }   
+
+  st.step_count--; // Decrement step events count 
+  printf("test4 st.step_count is %d \n", st.step_count);
+  st.step_count = 0;
+  if (st.step_count == 0) {
+    printf("testkkk1\n");
+    // Segment is complete. Discard current segment and advance segment indexing.
+    st.exec_segment = NULL;
+    if ( ++segment_buffer_tail == SEGMENT_BUFFER_SIZE) { segment_buffer_tail = 0; }
+  }
+
+  st.step_outbits ^= step_port_invert_mask;  // Apply step port invert mask 
+  st_go_idle();   
+  //busy = false;
+  st_reset();
+#endif
+}
+
+void timer_handler(int sig) {
+    if (sig == SIGALRM) {
+      st.step_count = 0;
+
+      st.counter_x = 0;
+      st.counter_y = 0;
+      st.counter_z = 0;
+      st.counter_u = 0;
+      st.counter_v = 0;
+      st.counter_e = 0;
+
+        if (st.step_count == 0) {
+    // Segment is complete. Discard current segment and advance segment indexing.
+    st.exec_segment = NULL;
+    if ( ++segment_buffer_tail == SEGMENT_BUFFER_SIZE) { segment_buffer_tail = 0; }
+
+    //printf("111");
+  }
+
+       // st_go_idle();
+      //  st_reset();
+       // printf("Timer expired\n");
+        bit_true_atomic(sys_rt_exec_state,EXEC_CYCLE_STOP);
+        // 停止定时器，如果需要的话
+        struct itimerval zero_time;
+        zero_time.it_value.tv_sec = zero_time.it_value.tv_usec = 0;
+        zero_time.it_interval.tv_sec = zero_time.it_interval.tv_usec = 0;
+        setitimer(ITIMER_REAL, &zero_time, NULL);
+    }
+}
+
+
+void timer_handler2(int sig) {
+    if (sig == SIGALRM) {
+     
+    printf("endxxxxxxxxxxx");
+  }
+}
+
+int test() {
+    struct itimerval new_time;
+    signal(SIGALRM, timer_handler);
+    
+
+
+    // struct itimerval new_time2;
+    // signal(SIGALRM, timer_handler2);
+
+
+
+    // 设置定时器，5秒后触发
+    new_time.it_value.tv_sec = 0;
+    new_time.it_value.tv_usec = 10000;
+    // 设置定时器间隔，如果不想重复，则设置为0
+    new_time.it_interval.tv_sec = 0;
+    new_time.it_interval.tv_usec = 0;
+
+
+    // new_time2.it_value.tv_sec = 0;
+    // new_time2.it_value.tv_usec = 100000;
+    // // 设置定时器间隔，如果不想重复，则设置为0
+    // new_time2.it_interval.tv_sec = 0;
+    // new_time2.it_interval.tv_usec = 0;
+
+    // 选择定时器类型
+    if (setitimer(ITIMER_REAL, &new_time, NULL) < 0) {
+        perror("setitimer");
+        exit(1);
+    }
+
+
+    //     if (setitimer(ITIMER_REAL, &new_time2, NULL) < 0) {
+    //     perror("setitimer");
+    //     exit(1);
+    // }
+
+    xxx_ttt();
+    
+
+
+
+    // 执行其他任务
+    // while(1) {
+    //     sleep(1);
+    // }
+ 
+    return 0;
+}
+
+#endif
 // Stepper state initialization. Cycle should only start if the st.cycle_start flag is
 // enabled. Startup init and limits call this function but shouldn't start the cycle.
 void st_wake_up() 
 {
+  printf("st_wake_up\n");
 #ifndef LOONGSON
   // Enable stepper drivers.
   if (bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE)) { STEPPERS_DISABLE_PORT |= (1<<STEPPERS_DISABLE_BIT); }
@@ -209,12 +737,22 @@ void st_wake_up()
     TIMSK1 |= (1<<OCIE1A);
   }
 #endif
+
+  // st.step_pulse_time = -(((settings.pulse_microseconds-2)*TICKS_PER_MICROSECOND) >> 3);
+  // printf("st.step_pulse_time is %d\n", st.step_pulse_time);
+  
+  //printf("st_wake_up2 %d,%d,%d\r\n", st.steps[X_AXIS], st.steps[Y_AXIS],st.steps[Z_AXIS]);
+ //printf("st_wake_up3 %d,%d,%d\r\n", st.exec_block->steps[X_AXIS], st.exec_block->steps[X_AXIS],st.exec_block->steps[X_AXIS]);
+  //printf("VVVV:%d %d,%d,%d\r\n", st.execute_step, st.step_pulse_time,st.step_outbits,st.dir_outbits);
+
+  test();
 }
 
 
 // Stepper shutdown
 void st_go_idle() 
 {
+  printf("st_go_idle\n");
 #ifndef LOONGSON
   // Disable Stepper Driver Interrupt. Allow Stepper Port Reset Interrupt to finish, if active.
   TIMSK1 &= ~(1<<OCIE1A); // Disable Timer1 interrupt
@@ -233,6 +771,18 @@ void st_go_idle()
   if (pin_state) { STEPPERS_DISABLE_PORT |= (1<<STEPPERS_DISABLE_BIT); }
   else { STEPPERS_DISABLE_PORT &= ~(1<<STEPPERS_DISABLE_BIT); }
 #endif
+
+  // Set stepper driver idle state, disabled or enabled, depending on settings and circumstances.
+  bool pin_state = false; // Keep enabled.
+  if (((settings.stepper_idle_lock_time != 0xff) || sys_rt_exec_alarm) && sys.state != STATE_HOMING) {
+    // Force stepper dwell to lock axes for a defined amount of time to ensure the axes come to a complete
+    // stop and not drift from residual inertial forces at the end of the last movement.
+    //delay_ms(settings.stepper_idle_lock_time);
+    pin_state = true; // Override. Disable steppers.
+  }
+  // if (bit_istrue(settings.flags,BITFLAG_INVERT_ST_ENABLE)) { pin_state = !pin_state; } // Apply pin invert.
+  // if (pin_state) { STEPPERS_DISABLE_PORT |= (1<<STEPPERS_DISABLE_BIT); }
+  // else { STEPPERS_DISABLE_PORT &= ~(1<<STEPPERS_DISABLE_BIT); }
 }
 
 
@@ -352,7 +902,7 @@ ISR(TIMER1_COMPA_vect)
 
   
   // Check probing state.
-  probe_state_monitor();
+  //probe_state_monitor();
    
   // Reset step out bits.
   st.step_outbits = 0; 
@@ -482,6 +1032,8 @@ void st_reset()
 // Initialize and start the stepper motor subsystem
 void stepper_init()
 {
+  printf("stepper_init\n");
+  loongson_pwm_init();
 #ifndef LOONGSON
   // Configure step and direction interface pins
   STEP_DDR |= STEP_MASK;
@@ -564,6 +1116,9 @@ void st_prep_buffer()
           st_prep_block->steps[X_AXIS] = pl_block->steps[X_AXIS];
           st_prep_block->steps[Y_AXIS] = pl_block->steps[Y_AXIS];
           st_prep_block->steps[Z_AXIS] = pl_block->steps[Z_AXIS];
+          st_prep_block->steps[U_AXIS] = pl_block->steps[U_AXIS];
+          st_prep_block->steps[V_AXIS] = pl_block->steps[V_AXIS];
+          st_prep_block->steps[E_AXIS] = pl_block->steps[E_AXIS];
           st_prep_block->step_event_count = pl_block->step_event_count;
         #else
           // With AMASS enabled, simply bit-shift multiply all Bresenham data by the max AMASS 
@@ -572,9 +1127,12 @@ void st_prep_buffer()
           st_prep_block->steps[X_AXIS] = pl_block->steps[X_AXIS] << MAX_AMASS_LEVEL;
           st_prep_block->steps[Y_AXIS] = pl_block->steps[Y_AXIS] << MAX_AMASS_LEVEL;
           st_prep_block->steps[Z_AXIS] = pl_block->steps[Z_AXIS] << MAX_AMASS_LEVEL;
+          st_prep_block->steps[U_AXIS] = pl_block->steps[U_AXIS] << MAX_AMASS_LEVEL;
+          st_prep_block->steps[V_AXIS] = pl_block->steps[V_AXIS] << MAX_AMASS_LEVEL;
+          st_prep_block->steps[E_AXIS] = pl_block->steps[E_AXIS] << MAX_AMASS_LEVEL;
           st_prep_block->step_event_count = pl_block->step_event_count << MAX_AMASS_LEVEL;
         #endif
-        
+
         // Initialize segment buffer data for generating the segments.
         prep.steps_remaining = pl_block->step_event_count;
         prep.step_per_mm = prep.steps_remaining/pl_block->millimeters;

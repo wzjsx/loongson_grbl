@@ -31,15 +31,27 @@
   #define DEFAULT_X_STEPS_PER_MM 250.0
   #define DEFAULT_Y_STEPS_PER_MM 250.0
   #define DEFAULT_Z_STEPS_PER_MM 250.0
+  #define DEFAULT_U_STEPS_PER_MM 250.0
+  #define DEFAULT_V_STEPS_PER_MM 250.0
+  #define DEFAULT_E_STEPS_PER_MM 250.0
   #define DEFAULT_X_MAX_RATE 500.0 // mm/min
   #define DEFAULT_Y_MAX_RATE 500.0 // mm/min
   #define DEFAULT_Z_MAX_RATE 500.0 // mm/min
+  #define DEFAULT_U_MAX_RATE 500.0 // mm/min
+  #define DEFAULT_V_MAX_RATE 500.0 // mm/min
+  #define DEFAULT_E_MAX_RATE 500.0 // mm/min
   #define DEFAULT_X_ACCELERATION (10.0*60*60) // 10*60*60 mm/min^2 = 10 mm/sec^2
   #define DEFAULT_Y_ACCELERATION (10.0*60*60) // 10*60*60 mm/min^2 = 10 mm/sec^2
   #define DEFAULT_Z_ACCELERATION (10.0*60*60) // 10*60*60 mm/min^2 = 10 mm/sec^2
+  #define DEFAULT_U_ACCELERATION (10.0*60*60) // 10*60*60 mm/min^2 = 10 mm/sec^2
+  #define DEFAULT_V_ACCELERATION (10.0*60*60) // 10*60*60 mm/min^2 = 10 mm/sec^2
+  #define DEFAULT_E_ACCELERATION (10.0*60*60) // 10*60*60 mm/min^2 = 10 mm/sec^2
   #define DEFAULT_X_MAX_TRAVEL 200.0 // mm
   #define DEFAULT_Y_MAX_TRAVEL 200.0 // mm
   #define DEFAULT_Z_MAX_TRAVEL 200.0 // mm
+  #define DEFAULT_U_MAX_TRAVEL 200.0 // mm
+  #define DEFAULT_V_MAX_TRAVEL 200.0 // mm
+  #define DEFAULT_E_MAX_TRAVEL 200.0 // mm
   #define DEFAULT_STEP_PULSE_MICROSECONDS 10
   #define DEFAULT_STEPPING_INVERT_MASK 0
   #define DEFAULT_DIRECTION_INVERT_MASK 0

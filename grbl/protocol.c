@@ -319,9 +319,11 @@ void protocol_execute_realtime()
           if (plan_get_current_block() && bit_isfalse(sys.suspend,SUSPEND_MOTION_CANCEL)) {
             sys.state = STATE_CYCLE;
             st_prep_buffer(); // Initialize step segment buffer before beginning cycle.
+           // printf("22\n");
             st_wake_up();
           } else { // Otherwise, do nothing. Set and resume IDLE state.
             sys.state = STATE_IDLE;
+          //  printf("11\n");
           }
           sys.suspend = SUSPEND_DISABLE; // Break suspend state.
         }
