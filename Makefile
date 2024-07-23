@@ -81,7 +81,7 @@ clean:
 
 # file targets:
 $(BUILDDIR)/main.elf: $(OBJECTS)
-	$(COMPILE) -o $(BUILDDIR)/main.elf $(OBJECTS) -lm -Wl,--gc-sections
+	$(COMPILE) -o $(BUILDDIR)/main.elf $(OBJECTS) -lpthread -lm -Wl,--gc-sections
 
 grbl.hex: $(BUILDDIR)/main.elf
 	rm -f grbl.hex

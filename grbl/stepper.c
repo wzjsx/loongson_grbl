@@ -39,8 +39,10 @@
 #include <unistd.h>
 #include <termios.h>
 #include <sys/mman.h>
+#include <pthread.h>
 #endif
 
+int stop_flag_cnt = 0;
 // Some useful constants.
 #define DT_SEGMENT (1.0/(ACCELERATION_TICKS_PER_SECOND*60.0)) // min/segment 
 #define REQ_MM_INCREMENT_SCALAR 1.25                                   
@@ -242,6 +244,26 @@ unsigned char *abp_base1=NULL;
 unsigned char *func_base=NULL;
 int dev_fd;
 
+// 线程函数  
+void* thread_function(void* arg) {  
+    printf("Hello from the new thread!\n");  
+
+    while (1)
+    {
+      stop_flag_cnt = stop_flag_cnt + 1;
+      usleep(100000); // 延时100毫秒
+      printf("thread_function is %d\n", stop_flag_cnt);
+      if(stop_flag_cnt > 30)
+      {
+        stop_flag_cnt = 0;
+        printf("thread_function\n");
+      }
+    }
+    
+
+    return NULL;  
+}  
+
 //初始化pwm
 void loongson_pwm_init(void)
 {
@@ -307,6 +329,26 @@ printf("%08x\n", *(volatile unsigned int *)(map_base +  PWM3_BASE + 0xc));
 *(volatile unsigned int *)(map_base + PWM2_BASE+0xC ) = 0x0;
 *(volatile unsigned int *)(map_base + PWM3_BASE+0xC ) = 0x0;
 
+//创建线程
+  pthread_t thread_id; // 用于存储线程ID的变量  
+  
+    // 创建线程  
+    // 第一个参数是线程ID的指针  
+    // 第二个参数是线程的属性，通常设为NULL表示使用默认属性  
+    // 第三个参数是线程要执行的函数  
+    // 第四个参数是传递给线程函数的参数，这里我们不需要传递任何参数，所以为NULL  
+    // 返回值表示创建线程是否成功  
+    if (pthread_create(&thread_id, NULL, thread_function, NULL) != 0) {  
+        perror("Failed to create thread");  
+        return 1;  
+    }  
+  
+    // 等待线程结束  
+    // 第一个参数是线程ID  
+    // 第二个参数是线程返回值的指针，这里我们不需要它，所以为NULL  
+    //pthread_join(thread_id, NULL);  
+  
+    printf("Thread has finished execution\n");  
 return 0;
 }
 
@@ -619,6 +661,7 @@ void xxx_ttt(void)
 
 void timer_handler(int sig) {
     if (sig == SIGALRM) {
+      stop_flag_cnt = 0;
       st.step_count = 0;
 
       st.counter_x = 0;
